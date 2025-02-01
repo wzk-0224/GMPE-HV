@@ -1,0 +1,436 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import scipy.io as scio
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from matplotlib import pyplot as plt
+import xlrd
+import openpyxl
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+import pandas as pd
+from matplotlib import pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+import os
+import tensorflow as tf
+from tensorflow import keras
+
+
+# In[2]:
+
+
+df1 = pd.read_excel('竖向数据.xlsx')
+df1_1 = df1[['Magnitude','Source_Depth','Epicentral_Distance(震中距)']]
+
+
+# In[3]:
+
+
+df1_1 
+
+
+# In[4]:
+
+
+input1_1 = np.array(df1_1)
+
+
+# In[5]:
+
+
+df1_output = df1.iloc[:,4:145]
+output1_1 = np.array(df1_output)
+
+
+# In[6]:
+
+
+df1_output
+
+
+# In[7]:
+
+
+import numpy as np
+
+def smooth_log10(x, epsilon=1e-8):
+    epsilon_added = np.where(x == 0, epsilon, 0)  # 在 x = 0 的位置加上 epsilon
+    return np.log10(x + epsilon_added)  # 使用以10为底的对数
+
+# 假设 output1_1 是你的数据
+data1_log = output1_1
+
+# 对数据进行平滑取对数转换
+log_df1 = smooth_log10(data1_log)
+
+
+# In[8]:
+
+
+log_df1
+
+
+# In[9]:
+
+
+output_11 = log_df1
+
+
+# In[10]:
+
+
+print(output_11.shape)
+print(input1_1.shape)
+
+
+# In[11]:
+
+
+scaler = MinMaxScaler(feature_range=(0,1))  #进行归一化处理
+input_1 = scaler.fit_transform(input1_1) 
+output_1 = scaler.fit_transform(output_11)
+
+
+# In[12]:
+
+
+print(output_1.shape)
+print(input_1.shape)
+
+
+# In[13]:
+
+
+train_x_1, test_x1, train_y_1, test_y1 = train_test_split(input_1, output_1, test_size=0.3 ,random_state=42)
+train_x = train_x_1
+test_x =test_x1
+train_y = train_y_1
+test_y = test_y1
+
+
+# In[14]:
+
+
+print(train_x.shape)
+print(train_y.shape)
+print(test_x.shape)
+print(test_y.shape)
+
+
+# In[17]:
+
+
+from tensorflow import keras
+from tensorflow.keras import regularizers
+
+model = keras.Sequential()
+
+model.add(keras.layers.Dense(64, activation='relu'))
+model.add(keras.layers.Dense(32, activation='relu'))
+model.add(keras.layers.Dense(141))
+
+model.compile(optimizer=keras.optimizers.Adam(0.001), loss='mean_squared_error')
+
+history = model.fit(train_x, train_y, batch_size=64, epochs=200, validation_data=(test_x, test_y))
+
+model.save('中国竖向地震动预测模型.h5')
+
+
+# In[18]:
+
+
+train_loss = history.history['loss']
+val_loss = history.history['val_loss']
+
+# 画出训练集和验证集的损失函数曲线
+plt.plot(range(1, len(train_loss)+1), train_loss, label='Train Loss')
+plt.plot(range(1, len(val_loss)+1), val_loss, label='Validation Loss')
+plt.title('Loss Curve')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
+
+# In[15]:
+
+
+model = tf.keras.models.load_model('中国竖向地震动预测模型.h5')
+
+
+# In[17]:
+
+
+trainPredict_0 = model.predict(train_x)  #用训练好的模型进行预测
+testPredict_0 = model.predict(test_x)
+predtrain=scaler.inverse_transform(trainPredict_0)
+TrainY=scaler.inverse_transform(train_y)
+predtest=scaler.inverse_transform(testPredict_0)
+TestY=scaler.inverse_transform(test_y)
+
+
+# In[39]:
+
+
+import matplotlib.pyplot as plt
+
+# 输入x和y坐标的值
+x = TrainY[:,0]
+y = predtrain[:,0]
+
+plt.scatter(x, y)
+
+plt.plot([min(x), max(x)], [min(x), max(x)], color='red')  # 添加红线
+
+plt.title('train_Scatter plot')
+plt.show()
+
+
+# In[28]:
+
+
+from sklearn.metrics import r2_score# 训练集PGA
+y_pred_PGA =predtrain[:,140]
+y_true_PGA =TrainY[:,140]
+
+# 计算预测误差
+error_PGA= y_pred_PGA - y_true_PGA
+
+# 计算均方差（均方根误差）
+mse_PGA = np.mean(error_PGA**2)
+rmse_PGA = np.sqrt(mse_PGA)
+
+# 计算绝对误差（平均绝对误差）
+mae_PGA = np.mean(np.abs(error_PGA))
+
+# 计算R2分数
+r2_PGA = r2_score(y_true_PGA, y_pred_PGA)
+
+# 打印结果
+print("R2 score_PGA:", r2_PGA)
+print("RMSE_PGA:", rmse_PGA)
+print("MAE_PGA:", mae_PGA)
+
+
+# In[29]:
+
+
+from sklearn.metrics import r2_score# 训练集PGA
+y_pred_PGA =predtest[:,140]
+y_true_PGA =TestY[:,140]
+
+# 计算预测误差
+error_PGA= y_pred_PGA - y_true_PGA
+
+# 计算均方差（均方根误差）
+mse_PGA = np.mean(error_PGA**2)
+rmse_PGA = np.sqrt(mse_PGA)
+
+# 计算绝对误差（平均绝对误差）
+mae_PGA = np.mean(np.abs(error_PGA))
+
+# 计算R2分数
+r2_PGA = r2_score(y_true_PGA, y_pred_PGA)
+
+# 打印结果
+print("R2 score_PGA:", r2_PGA)
+print("RMSE_PGA:", rmse_PGA)
+print("MAE_PGA:", mae_PGA)
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[22]:
+
+
+import matplotlib.pyplot as plt
+
+# 输入x和y坐标的值
+x = TrainY
+y = predtrain
+
+plt.scatter(x, y)
+
+plt.plot([-10, 5], [-10, 5], color='red')  # 添加红线
+
+plt.title('train_Scatter plot')
+plt.show()
+
+
+# In[23]:
+
+
+import matplotlib.pyplot as plt
+
+# 输入x和y坐标的值
+x = TestY
+y = predtest
+
+plt.scatter(x, y)
+
+plt.plot([-10, 5], [-10, 5], color='red')  # 添加红线
+
+plt.title('train_Scatter plot')
+plt.show()
+
+
+# In[24]:
+
+
+from sklearn.metrics import r2_score# 训练集PGA
+y_pred_PGA =predtrain
+y_true_PGA =TrainY
+
+# 计算预测误差
+error_PGA= y_pred_PGA - y_true_PGA
+
+# 计算均方差（均方根误差）
+mse_PGA = np.mean(error_PGA**2)
+rmse_PGA = np.sqrt(mse_PGA)
+
+# 计算绝对误差（平均绝对误差）
+mae_PGA = np.mean(np.abs(error_PGA))
+
+# 计算R2分数
+r2_PGA = r2_score(y_true_PGA, y_pred_PGA)
+
+# 打印结果
+print("R2 score_PGA:", r2_PGA)
+print("RMSE_PGA:", rmse_PGA)
+print("MAE_PGA:", mae_PGA)
+
+
+# In[25]:
+
+
+from sklearn.metrics import r2_score# 训练集PGA
+y_pred_PGA =predtest
+y_true_PGA =TestY
+
+# 计算预测误差
+error_PGA= y_pred_PGA - y_true_PGA
+
+# 计算均方差（均方根误差）
+mse_PGA = np.mean(error_PGA**2)
+rmse_PGA = np.sqrt(mse_PGA)
+
+# 计算绝对误差（平均绝对误差）
+mae_PGA = np.mean(np.abs(error_PGA))
+
+# 计算R2分数
+r2_PGA = r2_score(y_true_PGA, y_pred_PGA)
+
+# 打印结果
+print("R2 score_PGA:", r2_PGA)
+print("RMSE_PGA:", rmse_PGA)
+print("MAE_PGA:", mae_PGA)
+
+
+# In[26]:
+
+
+df_TrainY= pd.DataFrame(TrainY)
+df_predtrain= pd.DataFrame(predtrain)
+df_TestY= pd.DataFrame(TestY)
+df_predtest= pd.DataFrame( predtest)
+
+
+# In[25]:
+
+
+df_TrainY.to_excel('中国竖向地震动真实训练.xlsx', index=False)
+df_predtrain.to_excel('中国竖向地震动预测训练.xlsx', index=False)
+df_TestY.to_excel('中国竖向地震动真实测试.xlsx', index=False)
+df_predtest.to_excel('中国竖向地震动预测测试.xlsx', index=False)
+
+
+# In[ ]:
+
+
+
+
+
+# In[27]:
+
+
+
+
+
+# In[50]:
+
+
+scaler = MinMaxScaler(feature_range=(0,1))  #进行归一化处理
+input_1 = scaler.fit_transform(input_1) 
+output_1 = scaler.fit_transform(output_11)
+
+
+# In[51]:
+
+
+datax = input_1
+print(input_1.shape)
+print(output_1.shape)
+print(datax .shape)
+
+
+# In[52]:
+
+
+xunlian_y_0 = model.predict(input_1)
+
+
+# In[53]:
+
+
+zhenshi_y_1=scaler.inverse_transform(output_1)
+xunlian_y_1 =scaler.inverse_transform(xunlian_y_0)
+
+
+# In[54]:
+
+
+df_zhenshi_y_1= pd.DataFrame(zhenshi_y_1)
+df_xunlian_y_1= pd.DataFrame(xunlian_y_1)
+
+
+# In[55]:
+
+
+df_zhenshi_y_1
+
+
+# In[56]:
+
+
+df_xunlian_y_1
+
+
+# In[ ]:
+
+
+df_zhenshi_y_1.to_excel('中国竖向真实1.xlsx', index=False)
+df_xunlian_y_1.to_excel('中国竖向预测1.xlsx', index=False)
+
+
+# In[ ]:
+
+
+
+
